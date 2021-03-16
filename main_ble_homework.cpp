@@ -51,6 +51,7 @@ class CHomework {
 	void onButtonPressed() {
 		// TODO use event_queue call to dispatch button event pressed function handling to onButtonAlert
 		// function
+        _event_queue->call(this, &CHomework::onButtonAlert);
 	}
 
 	/**
@@ -63,6 +64,7 @@ class CHomework {
 		 * Indicate new alert to Alert Notification Service (_ans) with type
 		 * CAlertNotificationServiceServer::ANS_TYPE_SIMPLE_ALERT
 		 */
+        _ans.newAlert(CAlertNotificationServiceServer::ANS_TYPE_SIMPLE_ALERT);
 	}
 	/**
 	 * \brief Immediate Alert Service Alert Level characteristic written callback function
@@ -75,18 +77,23 @@ class CHomework {
 		switch (level) {
 		case CImmediateAlertServiceServer::IAS_ALERT_LEVEL_NO_ALERT:
 			// TODO  pulsewidth value to NO_ALERT state (LED should be off)
+            pulsewidth = 0;
 			break;
 		case CImmediateAlertServiceServer::IAS_ALERT_LEVEL_MEDIUM:
 			// TODO  pulsewidth value to MEDIUM ALERT state (LED should be half bright)
+            pulsewidth = PWM_PERIOD_US / 2;
 			break;
 		case CImmediateAlertServiceServer::IAS_ALERT_LEVEL_HIGH:
 			// TODO  pulsewidth value to HIGH ALERT state (LED should be bright)
+            pulsewidth = PWM_PERIOD_US;
 			break;
 		default:
 			// TODO  pulsewidth value to HIGH ALERT state (LED should be bright)
+            pulsewidth = PWM_PERIOD_US;
 			break;
 		}
 		// TODO update the PwmOut object pulsewidth
+        _alert_led_pwm.pulsewidth(pulsewidth);
 	}
 
 	/**
@@ -96,6 +103,7 @@ class CHomework {
 	void onConnection() {
 		_gatt_server.onConnection();
 		// TODO set the Alert Level LED brightness to NO_ALERT level
+        _ias.setAlert(CImmediateAlertServiceServer::IAS_ALERT_LEVEL_NO_ALERT);
 	}
 	/**
 	 * \brief The onDisconnection callback of the GAP
@@ -105,6 +113,8 @@ class CHomework {
 		_gatt_server.onDisconnection();
 		// TODO set the Alert Level LED brightness to NO_ALERT level
 		// TODO clear Alert Notification Service Alert Counts by using _ans->clearAlert()
+        _ias.setAlert(CImmediateAlertServiceServer::IAS_ALERT_LEVEL_NO_ALERT);
+        _ans.clearAlert(CAlertNotificationServiceServer::ANS_TYPE_ALL_ALERTS);
 	}
 
   public:
@@ -140,12 +150,20 @@ class CHomework {
 		 * 7. Enable authentication requirement for Immediate Alert Service object _ias
 		 * 8. Enable authentication requirement for Alert Notification Service object _ans
 		 */
+        _gap.setOnConnection(callback(this, &CHomework::onConnection));
+        _gap.setOnDisconnection(callback(this, &CHomework::onDisconnection));
+        _ias.setOnAlertLevelWritten(callback(this, &CHomework::onAlertLevelChanged));
+        _alert_button.rise(callback(this, &CHomework::onButtonPressed));
+        _alert_led_pwm.period(PWM_PERIOD_US);
+        _alert_led_pwm.pulsewidth(0);
+        _ias.enableAuthentication();
+        _ans.enableAuthentication();
 
 	}
 
-	void run() { 
+	void run() {
 		// just let GAP class handle the event loops
-		_gap.run(); 
+		_gap.run();
 	}
 };
 
